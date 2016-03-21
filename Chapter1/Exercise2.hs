@@ -8,75 +8,98 @@ as well as the average fitness of the population at each generation. How do thes
 plots change as you vary the population size, the crossover rate, and the mutation
 rate? What if you use only mutation (i.e., pc = 0)?
 -}
-{-# LANGUAGE TupleSections #-}
-module Exercise2 where
+{-# LANGUAGE RecordWildCards #-}
+module Ex where
 
+import Control.Monad.State
 import System.Random
 
 import Debug.Trace
 
 
-type Chromo = [Bool]
+type Fitness    = Int
+type Chromo     = [Bool]
+type Population = [Chromo]
+data GOpts
+  = GOpts
+  { generator      :: StdGen
+  , populationSize :: Int
+  , crossoverRate  :: Double
+  , mutationRate   :: Double
+  } deriving Show
+data GState
+  = GState
+  { options      :: GOpts
+  , generation   :: Int
+  , population   :: Population
+  , fitnesses    :: [Fitness]
+  , totalFitness :: Fitness
+  , bestFitness  :: Fitness
+  } deriving Show
+type G = State GState
 
-popSize = 100
-chromoSize = 20
-pCrossover = 0.7
-pMutation = 0.001
-
-
-main :: IO ()
-main = do
-    ((result, _), n) <- until solved evolve' . (,0) . initPop <$> getStdGen
-    return ()
-
-solved :: (([Chromo], StdGen), Int) -> Bool
-solved ((_, _), n) = n > 100
-
-evolve' :: (([Chromo], StdGen), Int) -> (([Chromo], StdGen), Int)
-evolve' (current, n) = trace (show bestFitness ++ " " ++ show avgFitness)
-    $ (evolve current, n + 1)
+runG :: GOpts -> (Population, Int, StdGen)
+runG opts = (population finish, generation finish, generator $ options finish)
   where
-    totalFitness = sum allFitnesses
-    allFitnesses = map fitness $ fst current
-    avgFitness   = (fromIntegral totalFitness) / (fromIntegral $ length $ fst current)
-    bestFitness  = maximum allFitnesses
+    finish = execState evolve start
+    start = GState
+          { options      = opts
+          , generation   = 0
+          , population   = mempty
+          , fitnesses    = mempty
+          , totalFitness = 0
+          , bestFitness  = 0
+          }
 
-evolve :: ([Chromo], StdGen) -> ([Chromo], StdGen)
-evolve (pop, g) = until ((>= popSize) . length . fst) addChromo ([], g)
-  where
-    addChromo (pop', g) = (mutatedOffsprings ++ pop', g''')
-      where
-        (mutatedOffsprings, g''') =
-          let (mutated1, gm1) = mutate g'' offspring1
-              (mutated2, gm2) = mutate gm1 offspring2
-          in  ([mutated1, mutated2], gm2)
-        ((offspring1, offspring2), g'') = crossOver g' selectedParents
-        (selectedParents, g') = selectParents g pop 
+randomG :: Random a => G a
+randomG = state $ \s ->
+    let (x, g') = random (generator $ options s)
+    in  (x, s { options = (options s) { generator = g' } })
 
-selectParents :: StdGen -> [Chromo] -> ((Chromo, Chromo), StdGen)
-selectParents g pop = ((parent1, parent2), g'')
-  where
-    (parent1, g')  = select g
-    (parent2, g'') = select g'
-    select g =
-      let (ball, g') = randomR (0, totalFitness - 1) g
-      in (roulette pop allFitnesses ball, g')
-    totalFitness = sum allFitnesses
-    allFitnesses = map fitness pop
+randomGR :: Random a => (a, a) -> G a
+randomGR range = state $ \s ->
+    let (x, g') = randomR range (generator $ options s)
+    in  (x, s { options = (options s) { generator = g' } })
 
-roulette :: [Chromo] -> [Int] -> Int -> Chromo
-roulette pop allFitnesses ball = fst $ withFitness !! snd (until reached step (snd $ head withFitness, 0))
-  where
-    reached (value, _) = value >= ball
-    step (value, index) = (value + snd (withFitness !! (index + 1)), index + 1)
-    withFitness = zip pop allFitnesses
+evolve :: G ()
+evolve = do
+    initPopulation
+    let step = do
+        done <- solved
+        unless done $ do
+            calculateFitness
+            count <- gets (populationSize . options)
+            newInstances <- replicateM (count `div` 2) $ do
+                parents <- selectParents
+                offsprings <- (uncurry crossover) parents
+                mapM mutate offsprings
+            replace (take count $ concat newInstances)
+            
+            total <- fromIntegral <$> gets totalFitness
+            let average = total / fromIntegral count
+            best <- gets bestFitness
+            trace (show best ++ " " ++ show average) step
+    step
 
-initPop :: StdGen -> ([Chromo], StdGen)
-initPop g = iterate addChromo ([], g) !! popSize
-  where
-    addChromo (existing, g) = let (new, g') = newChromo g in (new : existing, g')
-    newChromo g = iterate addValue ([], g) !! chromoSize
-    addValue (existing, g) = let (new, g') = random g in (new : existing, g')
+initPopulation :: G ()
+initPopulation = do
+    count <- gets (populationSize . options)
+    newInstances <- replicateM count $ do
+        let chromoSize = 20
+        replicateM chromoSize randomG
+    modify $ \s -> s { population = newInstances }
+
+solved :: G Bool
+solved = (>= 100) <$> gets generation
+
+calculateFitness :: G ()
+calculateFitness = modify $ \s@GState{..} ->
+    let values = map fitness population
+        accumulated = scanl (+) 0 values
+    in  s { fitnesses    = accumulated
+          , totalFitness = last accumulated
+          , bestFitness  = maximum values
+          }
 
 fitness :: Chromo -> Int
 fitness = fromBinary
@@ -87,23 +110,57 @@ fromBinary = go 0
     go n [] = n
     go n (d:ds) = go (2 * n + if d then 1 else 0) ds
 
-crossOver :: StdGen -> (Chromo, Chromo) -> ((Chromo, Chromo), StdGen)
-crossOver g (a, b)
-  | doIt <= pCrossover = (( take locus a ++ drop locus b
-                          , take locus b ++ drop locus a ), g'')
-  | otherwise = ((a, b), g'')
-  where
-    (doIt,  g')  = random g :: (Double, StdGen)
-    (locus, g'') = randomR (0, length a - 1) g'
+selectParents :: G (Chromo, Chromo)
+selectParents = do
+    a <- roulette
+    b <- roulette
+    return (a, b)
 
-mutate :: StdGen -> Chromo -> (Chromo, StdGen)
-mutate g = foldl processGene ([], g)
-  where
-    processGene (processed, g) current =
-      let (doIt, g') = random g :: (Double, StdGen)
-          (new, g'') =
-            if doIt <= pMutation
-              then random g'
-              else (current, g')
-      in (new : processed, g'')
+roulette :: G Chromo
+roulette = do
+    total <- gets totalFitness
+    ball <- randomGR (0, total - 1)
+    fitnesses <- gets fitnesses
+    let index = length (takeWhile (<= ball) fitnesses) - 1
+    (!! index) <$> gets population
+
+crossover :: Chromo -> Chromo -> G [Chromo]
+crossover a b = do
+    dice <- randomG
+    threshold <- gets (crossoverRate . options)
+    if dice <= threshold
+        then do
+            locus <- randomGR (0, length a - 1)
+            return [ take locus a ++ drop locus b
+                   , take locus b ++ drop locus a ]
+        else return [a, b]
+
+mutate :: Chromo -> G Chromo
+mutate = mapM $ \c -> do
+    dice <- randomG
+    threshold <- gets (mutationRate . options)
+    if dice <= threshold
+        then return $ not c
+        else return c
+
+replace :: Population -> G ()
+replace newInstances = modify $ \s@GState{..} -> s
+    { generation   = generation + 1
+    , population   = newInstances
+    , fitnesses    = mempty
+    }
+
+
+main :: IO ()
+main = do
+    gen <- getStdGen
+    let opts
+          = GOpts
+          { generator      = gen
+          , populationSize = 100
+          , crossoverRate  = 0.7
+          , mutationRate   = 0.001
+          }
+        (_, n, _) = runG opts
+    print n
 

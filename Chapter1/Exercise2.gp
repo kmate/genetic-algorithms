@@ -151,5 +151,5 @@ set fontpath
 set psdir
 set fit noerrorvariables
 GNUTERM = "wxt"
-plot [] [0:1200000] 'Exercise2.dat' u 1 w lines t 'Crossover rate 0.7', 'Exercise2.dat' u 2 w lines t 'Mutation only'
+plot [] [0:1200000] 'Exercise2.dat' u 1 w lines t 'Best fitness', 'Exercise2.dat' u 2 w lines t 'Average fitness'
 #    EOF
