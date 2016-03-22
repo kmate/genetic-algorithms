@@ -23,54 +23,91 @@ Which algorithm finds them faster? Comparisons like these are important if claim
 are to be made that a GA is a more effective search algorithm than other stochastic
 methods on a given problem.
 -}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
 module Exercise4 where
 
+import Control.Monad.State
 import System.Random
 
 import Debug.Trace
 
 
-type Chromo = [Bool]
+type Fitness = Int
+type Chromo  = [Bool]
+data GState
+  = GState
+  { generator  :: StdGen
+  , generation :: Int
+  , solution   :: Chromo
+  } deriving Show
+type G = State GState
 
-
-main :: IO ()
-main = do
-    ((result, _), n) <- until solved step' . (,0) . initPop <$> getStdGen
-    return ()
-
-solved :: ((Chromo, StdGen), Int) -> Bool
-solved ((_, _), n) = n > 10000
-
-step' :: ((Chromo, StdGen), Int) -> ((Chromo, StdGen), Int)
-step' (current@(c, _), n) = t (step current, n + 1)
+runG :: StdGen -> (Chromo, Int, StdGen)
+runG gen = (solution finish, generation finish, generator finish)
   where
-    t = if n `div` 100 == 0 then traceShow (fitness c) else id
+    finish = execState evolve start
+    start = GState
+          { generator  = gen
+          , generation = 0
+          , solution   = undefined
+          }
 
-step :: (Chromo, StdGen) -> (Chromo, StdGen)
-step (c, g)
-    | fitness new > fitness c = (new, g')
-    | otherwise = (c, g')
-  where
-    (new, g') = mutate g c
+randomG :: Random a => G a
+randomG = state $ \s ->
+    let (x, g') = random (generator s)
+    in  (x, s { generator = g' })
 
-initPop :: StdGen -> (Chromo, StdGen)
-initPop g = iterate addValue ([], g) !! 20
-  where
-    addValue (existing, g) = let (new, g') = random g in (new : existing, g')
+randomGR :: Random a => (a, a) -> G a
+randomGR range = state $ \s ->
+    let (x, g') = randomR range (generator s)
+    in  (x, s { generator = g' })
 
-fitness :: Chromo -> Int
-fitness = fromBinary
+evolve :: G ()
+evolve = do
+    initPopulation
+    let step = do
+        done <- solved
+        unless done $ do
+            current <- gets solution
+            mutated <- mutate current
+            let oldFitness = fromBinary current
+                newFitness = fromBinary mutated
+            n <- gets generation
+            modify $ \s -> s
+                { generation = generation s + 1
+                , solution   = if newFitness > oldFitness
+                                    then mutated
+                                    else current }
+            let t = if n `div` 100 == 0 then traceShow oldFitness else id
+            t step
+    step
 
-fromBinary :: [Bool] -> Int
+initPopulation :: G ()
+initPopulation = do
+    newInstance <- do
+        let chromoSize = 20
+        replicateM chromoSize randomG
+    modify $ \s -> s { solution = newInstance }
+
+solved :: G Bool
+solved = (>= 10000) <$> gets generation
+
+fromBinary :: Chromo -> Int
 fromBinary = go 0
   where
     go n [] = n
     go n (d:ds) = go (2 * n + if d then 1 else 0) ds
 
-mutate :: StdGen -> Chromo -> (Chromo, StdGen)
-mutate g c = (take locus c ++ (new : drop (locus + 1) c), g'')
-  where
-    (locus, g') = randomR (0, length c - 1) g
-    (new, g'')  = random g'
+mutate :: Chromo -> G Chromo
+mutate c = do
+    locus <- randomGR (0, length c - 1)
+    new <- randomG
+    return $ take locus c ++ (new : drop (locus + 1) c)
+
+
+main :: IO ()
+main = do
+    gen <- getStdGen
+    let (_, n, _) = runG gen
+    print n
 
