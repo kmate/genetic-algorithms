@@ -10,7 +10,7 @@ average time required for the GA to find the optimal string. If it turns out tha
 mutation with crossover is better than mutation alone, why is that the case?
 -}
 {-# LANGUAGE RecordWildCards #-}
-module Ex where
+module Exercise1 where
 
 import Control.Monad.State
 import System.Random

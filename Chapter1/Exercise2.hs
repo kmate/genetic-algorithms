@@ -9,7 +9,7 @@ plots change as you vary the population size, the crossover rate, and the mutati
 rate? What if you use only mutation (i.e., pc = 0)?
 -}
 {-# LANGUAGE RecordWildCards #-}
-module Ex where
+module Exercise2 where
 
 import Control.Monad.State
 import System.Random
