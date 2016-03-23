@@ -1,18 +1,7 @@
 {-
-Implement a genetic programming algorithm and use it to solve the "6−multiplexer"
-problem (Koza 1992). In this problem there are six Boolean−valued terminals,
-{a0, a1, d0,d1, d2, d3}, and four functions, {AND, OR, NOT, IF}. The first three
-functions are the usual logical operators, taking two, two, and one argument
-respectively, and the IF function takes three arguments. (IF X Y Z) evaluates its
-first argument X. If X is true, the second argument Y is evaluated; otherwise the
-third argument Z is evaluated. The problem is to find a program that will return
-the value of the d terminal that is addressed by the two a terminals. E.g., if
-a0 = 0 and a1 = 1, the address is 01 and the answer is the value of d1. Likewise,
-if a0 = 1 and a1 = 1, the address is 11 and the answer is the value of d3.
-Experiment with different initial conditions, crossover rates, and population
-sizes. (Start with a population size of 300.) The fitness of a program should be
-the fraction of correct answers over all 2^6 possible fitness cases (i.e., values
-of the six terminals).
+Modify the fitness function used in computer exercise 1 to reward programs for
+small size as well as for correct performance. Test this new fitness function
+using your GP procedure. Can GP find correct but smaller programs by this method?
 -}
 module Chapter2.Exercise6 where
 
