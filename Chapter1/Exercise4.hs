@@ -23,8 +23,7 @@ Which algorithm finds them faster? Comparisons like these are important if claim
 are to be made that a GA is a more effective search algorithm than other stochastic
 methods on a given problem.
 -}
-{-# LANGUAGE RecordWildCards #-}
-module Exercise4 where
+module Chapter1.Exercise4 where
 
 import Control.Monad.State
 import System.Random
@@ -66,20 +65,20 @@ evolve :: G ()
 evolve = do
     initPopulation
     let step = do
-        done <- solved
-        unless done $ do
-            current <- gets solution
-            mutated <- mutate current
-            let oldFitness = fromBinary current
-                newFitness = fromBinary mutated
-            n <- gets generation
-            modify $ \s -> s
-                { generation = generation s + 1
-                , solution   = if newFitness > oldFitness
-                                    then mutated
-                                    else current }
-            let t = if n `div` 100 == 0 then traceShow oldFitness else id
-            t step
+            done <- solved
+            unless done $ do
+                current <- gets solution
+                mutated <- mutate current
+                let oldFitness = fromBinary current
+                    newFitness = fromBinary mutated
+                n <- gets generation
+                modify $ \s -> s
+                    { generation = generation s + 1
+                    , solution   = if newFitness > oldFitness
+                                        then mutated
+                                        else current }
+                let t = if n `div` 100 == 0 then traceShow oldFitness else id
+                t step
     step
 
 initPopulation :: G ()

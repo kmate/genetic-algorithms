@@ -8,8 +8,7 @@ as well as the average fitness of the population at each generation. How do thes
 plots change as you vary the population size, the crossover rate, and the mutation
 rate? What if you use only mutation (i.e., pc = 0)?
 -}
-{-# LANGUAGE RecordWildCards #-}
-module Exercise2 where
+module Chapter1.Exercise2 where
 
 import Control.Monad.State
 import System.Random
@@ -65,20 +64,20 @@ evolve :: G ()
 evolve = do
     initPopulation
     let step = do
-        done <- solved
-        unless done $ do
-            calculateFitness
-            count <- gets (populationSize . options)
-            newInstances <- replicateM (count `div` 2) $ do
-                parents <- selectParents
-                offsprings <- (uncurry crossover) parents
-                mapM mutate offsprings
-            replace (take count $ concat newInstances)
-            
-            total <- fromIntegral <$> gets totalFitness
-            let average = total / fromIntegral count
-            best <- gets bestFitness
-            trace (show best ++ " " ++ show average) step
+            done <- solved
+            unless done $ do
+                calculateFitness
+                count <- gets (populationSize . options)
+                newInstances <- replicateM (count `div` 2) $ do
+                    parents <- selectParents
+                    offsprings <- (uncurry crossover) parents
+                    mapM mutate offsprings
+                replace (take count $ concat newInstances)
+                
+                total <- fromIntegral <$> gets totalFitness
+                let average = total / fromIntegral count
+                best <- gets bestFitness
+                trace (show best ++ " " ++ show average) step
     step
 
 initPopulation :: G ()

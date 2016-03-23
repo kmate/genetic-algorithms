@@ -9,8 +9,7 @@ varying the mutation and crossover rates, to see how the variations affect the
 average time required for the GA to find the optimal string. If it turns out that
 mutation with crossover is better than mutation alone, why is that the case?
 -}
-{-# LANGUAGE RecordWildCards #-}
-module Exercise1 where
+module Chapter1.Exercise1 where
 
 import Control.Monad.State
 import System.Random
@@ -62,16 +61,16 @@ evolve :: G ()
 evolve = do
     initPopulation
     let step = do
-        done <- solved
-        unless done $ do
-            calculateFitness
-            count <- gets (populationSize . options)
-            newInstances <- replicateM (count `div` 2) $ do
-                parents <- selectParents
-                offsprings <- (uncurry crossover) parents
-                mapM mutate offsprings
-            replace (take count $ concat newInstances)
-            step
+            done <- solved
+            unless done $ do
+                calculateFitness
+                count <- gets (populationSize . options)
+                newInstances <- replicateM (count `div` 2) $ do
+                    parents <- selectParents
+                    offsprings <- (uncurry crossover) parents
+                    mapM mutate offsprings
+                replace (take count $ concat newInstances)
+                step
     step
 
 initPopulation :: G ()

@@ -14,8 +14,7 @@ sizes. (Start with a population size of 300.) The fitness of a program should be
 the fraction of correct answers over all 2^6 possible fitness cases (i.e., values
 of the six terminals).
 -}
-{-# LANGUAGE RecordWildCards #-}
-module Exercise6 where
+module Chapter2.Exercise6 where
 
 import Control.Monad.State
 import Control.Parallel.Strategies
@@ -150,16 +149,16 @@ evolve :: G ()
 evolve = do
     initPopulation
     let step = do
-        done <- solved
-        unless done $ do
-            calculateFitness
-            count <- gets (populationSize . options)
-            elite <- gets elite
-            newInstances <- replicateM (count `div` 2) $ do
-                parents <- selectParents
-                (uncurry crossover) parents
-            replace (elite ++ take (count - length elite) (concat newInstances))
-            step
+            done <- solved
+            unless done $ do
+                calculateFitness
+                count <- gets (populationSize . options)
+                elite <- gets elite
+                newInstances <- replicateM (count `div` 2) $ do
+                    parents <- selectParents
+                    (uncurry crossover) parents
+                replace (elite ++ take (count - length elite) (concat newInstances))
+                step
     step
 
 initPopulation :: G ()
